@@ -8,6 +8,9 @@ Check services:
 sudo systemctl status apache2
 sudo systemctl status mysql
 
+If either service is missing, install the required packages:
+sudo apt update
+sudo apt install apache2 php libapache2-mod-php mysql-server php-mysql -y
 
 Both should show active (running). Press q to exit.
 2. Check your database
