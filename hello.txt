@@ -1,1 +1,289 @@
-hello
+1. Start Apache and MySQL
+UBUNTU TERMINAL
+sudo systemctl start apache2
+sudo systemctl start mysql
+
+
+Check services:
+sudo systemctl status apache2
+sudo systemctl status mysql
+
+
+Both should show active (running). Press q to exit.
+2. Check your database
+UBUNTU TERMINAL
+sudo mysql
+
+
+MYSQL TERMINAL — mysql>
+SHOW DATABASES;
+
+
+USE web_project;
+
+
+SHOW TABLES;
+
+
+DESCRIBE contacts;
+
+
+SELECT * FROM contacts;
+
+
+Your table should have id, name, email, and message.
+3. Configure MySQL user
+First check your current account:
+SELECT CURRENT_USER();
+
+
+SELECT User, Host
+FROM mysql.user
+WHERE User = 'formuser';
+
+
+SHOW GRANTS FOR CURRENT_USER();
+
+
+If formuser does not exist, create it:
+CREATE USER 'formuser'@'localhost'
+IDENTIFIED BY 'YourStrongPassword123!';
+
+
+If it already exists, reset its password:
+ALTER USER 'formuser'@'localhost'
+IDENTIFIED BY 'YourStrongPassword123!';
+
+
+Now grant permission:
+GRANT INSERT ON web_project.contacts
+TO 'formuser'@'localhost';
+
+
+Verify:
+SHOW GRANTS FOR 'formuser'@'localhost';
+
+
+Expected
+ You should see INSERT permission for web_project.contacts.
+
+Important: If CREATE USER, ALTER USER, or GRANT returns an error, stop and share the error. Do not continue with an unconfigured database account.
+
+Exit:
+EXIT;
+
+
+4. Test MySQL user login
+UBUNTU TERMINAL
+mysql -u formuser -p web_project
+
+
+Enter your password.
+
+If successful, you will see:
+mysql>
+
+
+Exit:
+EXIT;
+
+
+5. Create website directory
+UBUNTU TERMINAL
+sudo mkdir -p /var/www/html/contact-form
+
+
+sudo chown -R $USER:$USER /var/www/html/contact-form
+
+
+sudo chmod 755 /var/www/html/contact-form
+
+
+6. Create HTML form
+nano /var/www/html/contact-form/index.html
+
+
+Paste:
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Contact Form</title>
+</head>
+<body>
+
+<h1>Contact Us</h1>
+
+<form action="submit.php" method="POST">
+
+    Name:<br>
+    <input type="text" name="name" required><br><br>
+
+    Email:<br>
+    <input type="email" name="email" required><br><br>
+
+    Message:<br>
+    <textarea name="message" required></textarea><br><br>
+
+    <button type="submit">Submit</button>
+
+</form>
+
+</body>
+</html>
+
+
+
+Save: Ctrl + O → Enter → Ctrl + X.
+7. Create PHP connection file
+nano /var/www/html/contact-form/submit.php
+
+
+Paste:
+
+<?php
+
+$conn = new mysqli(
+    "localhost",
+    "formuser",
+    "YourStrongPassword123!",
+    "web_project"
+);
+
+if ($conn->connect_error) {
+    die("Database connection failed.");
+}
+
+$name = trim($_POST['name'] ?? '');
+$email = trim($_POST['email'] ?? '');
+$message = trim($_POST['message'] ?? '');
+
+if ($_SERVER["REQUEST_METHOD"] !== "POST" ||
+    $name === '' ||
+    strlen($name) > 50 ||
+    strlen($email) > 100 ||
+    !filter_var($email, FILTER_VALIDATE_EMAIL) ||
+    $message === '') {
+    http_response_code(400);
+    die("Invalid form data.");
+}
+
+$stmt = $conn->prepare(
+    "INSERT INTO contacts (name, email, message)
+     VALUES (?, ?, ?)"
+);
+
+$stmt->bind_param("sss", $name, $email, $message);
+
+if ($stmt->execute()) {
+    echo "Form submitted successfully!";
+} else {
+    echo "Submission failed.";
+}
+
+$stmt->close();
+$conn->close();
+
+?>
+
+
+
+Replace the password with the same password configured in Step 3.
+
+Save and exit.
+8. Check PHP and Apache
+php -v
+
+
+php -m | grep mysqli
+
+
+php -l /var/www/html/contact-form/submit.php
+
+
+sudo apache2ctl configtest
+
+
+Expected:
+No syntax errors detected
+Syntax OK
+
+
+Restart Apache:
+sudo systemctl restart apache2
+
+
+9. Test locally
+Open your VM browser:
+Local website
+
+http://localhost/contact-form/
+
+Enter:
+- Name: Tuhin
+- Email: tuhin@example.com
+- Message: Testing Experiment 9
+Click Submit.
+10. Check database insertion
+UBUNTU TERMINAL
+sudo mysql -e "SELECT * FROM web_project.contacts;"
+
+
+You should see your submitted record.
+
+If the insertion fails:
+sudo tail -n 50 /var/log/apache2/error.log
+
+
+11. Install ngrok
+If ngrok is already installed, skip the installation.
+mkdir -p ~/ngrok-setup
+cd ~/ngrok-setup
+
+
+Download the Linux AMD64 version from the official ngrok installation instructions:
+Download ngrok for LinuxAfter downloading the archive into this folder:
+tar -xvzf ngrok-v3-stable-linux-amd64.tgz
+
+
+sudo mv ngrok /usr/local/bin/
+
+
+Verify:
+ngrok version
+
+
+12. Authenticate ngrok
+Get your authentication token:
+ngrok Dashboard – Auth TokenRun:
+ngrok config add-authtoken YOUR_AUTH_TOKEN
+
+
+Replace the placeholder with your actual token.
+13. Start the public website
+Final deployment
+Run:
+ngrok http 80
+
+
+Ngrok will show a forwarding URL similar to:
+https://example.ngrok-free.app
+
+
+Your public website URL will be:
+https://example.ngrok-free.app/contact-form/
+
+
+Use your actual ngrok URL, not the example.
+
+Keep this terminal running.
+14. Final verification
+Open the public URL on your phone using mobile data.
+
+Submit a new name and email.
+
+Then return to your VM and execute:
+sudo mysql -e "SELECT * FROM web_project.contacts;"
+
+
+If the new record appears, your experiment is working.
