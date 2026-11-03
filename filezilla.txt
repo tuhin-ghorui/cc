@@ -1,0 +1,83 @@
+Here's the full, clean walkthrough — from scratch — for setting up SFTP between your Windows host and Linux VM (given you're on NAT since bridged mode doesn't work on your network).
+
+## Step 1: Install SSH server on the Linux VM
+
+```bash
+sudo apt update
+sudo apt install openssh-server -y
+```
+
+## Step 2: Enable and start the SSH service
+
+```bash
+sudo systemctl enable ssh
+sudo systemctl start ssh
+sudo systemctl status ssh
+```
+Confirm it shows **`active (running)`** in green. Press `q` to exit the status view if needed.
+
+## Step 3: Allow SSH through the Linux firewall (if `ufw` is active)
+
+Check first:
+```bash
+sudo ufw status
+```
+If it says "active", allow port 22:
+```bash
+sudo ufw allow 22/tcp
+```
+If it says "inactive", skip this step.
+
+## Step 4: Note your Linux username
+
+```bash
+whoami
+```
+You'll need this to log in from FileZilla.
+
+## Step 5: Set up NAT port forwarding in VirtualBox
+
+1. Shut down the VM (or keep it running — VirtualBox allows editing NAT rules live)
+2. Select your VM → **Settings**
+3. Go to **Network** tab → **Adapter 1**
+4. Confirm **Attached to: NAT**
+5. Click **Advanced** → **Port Forwarding**
+6. Click the **+** icon to add a new rule:
+
+| Name | Protocol | Host IP | Host Port | Guest IP | Guest Port |
+|------|----------|---------|-----------|----------|------------|
+| SSH  | TCP      | *(leave blank)* | `2222` | *(leave blank)* | `22` |
+
+7. Click **OK** to save, then **OK** again to close settings
+
+## Step 6: Start/boot the VM (if it was shut down)
+
+## Step 7: Install FileZilla on Windows (if not already)
+Download from: https://filezilla-project.org/download.php?type=client
+
+## Step 8: Connect via FileZilla
+
+Open FileZilla and use **Site Manager** (File → Site Manager → New Site), or the Quickconnect bar at the top:
+
+| Field | Value |
+|-------|-------|
+| Host | `sftp://127.0.0.1` |
+| Port | `2222` |
+| Protocol | SFTP – SSH File Transfer Protocol |
+| Logon Type | Normal |
+| User | your Linux username (from Step 4) |
+| Password | your Linux user's password |
+
+Click **Quickconnect** (or Connect if using Site Manager).
+
+## Step 9: Verify connection
+- Left pane in FileZilla = your Windows filesystem
+- Right pane = your Linux VM filesystem
+- You should see your Linux home directory contents on the right
+
+## Step 10: Transfer files
+Drag and drop files between the two panes in either direction.
+
+---
+
+**Note on "between Windows and VM" vs "friends connecting to your VM":** this setup (using `127.0.0.1:2222`) only works from the **same physical machine** the VM is running on, since NAT forwards through localhost on the host. If a friend on a different computer needs to connect to your VM specifically, that requires your router's port forwarding (forwarding an external port to your Windows machine's IP, which then forwards into the VM) — a different, more involved setup. Let me know if that's what you actually need.
